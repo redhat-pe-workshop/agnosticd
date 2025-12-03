@@ -26,6 +26,8 @@
   with_items:
     - ai
     - dev
+    - devspaces
+    - label-studio
 
 - name: Configure Team-x
   vars:
@@ -36,6 +38,16 @@
   loop: "{{ range(1, ((ocp4_workload_cloud_native_robot_user_count | int) + 1)) | list }}"
   loop_control:
     loop_var: user_id
+
+# Fix issue: https://github.com/cloud-native-robotz-hackathon/infrastructure/issues/204
+- name: Remove spec.customization.customLogoFile from Console CR
+  kubernetes.core.k8s_json_patch:
+    api_version: operator.openshift.io/v1
+    kind: Console
+    name: cluster
+    patch:
+      - op: remove
+        path: /spec/customization/customLogoFile
 
 - name: OpenShift GitOps server info
   include_tasks: argocd_info.yml

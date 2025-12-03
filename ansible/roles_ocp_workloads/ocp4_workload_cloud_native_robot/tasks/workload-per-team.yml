@@ -1,4 +1,10 @@
 ---
+- name: Save robot information
+  agnosticd_user_info:
+    user: "{{ ocp4_workload_cloud_native_robot_user }}"
+    data:
+      robot_name: "{{ hostvars[inventory_hostname]['team_' + user_id | string + '_robot_name'] | default('') }}"
+
 - name: Create Namespaces per Team
   kubernetes.core.k8s:
     state: present
@@ -11,6 +17,8 @@
   with_items:
     - ai
     - dev
+    - devspaces
+    - label-studio
 
 # ---------------------------------------------------------
 # Create Object Bucket & OpenShift AI Data Connection
@@ -247,6 +255,8 @@
     url: "{{ _gitea_api_uri }}/api/v1/users/{{ ocp4_workload_cloud_native_robot_user }}/tokens/pipeline-as-code-token"
     method: DELETE
     force_basic_auth: true
+    # sometime the public certificat is not deployed
+    validate_certs: false
     status_code:
       - 204
       - 404
@@ -262,6 +272,8 @@
     url: "{{ _gitea_api_uri }}/api/v1/users/{{ ocp4_workload_cloud_native_robot_user }}/tokens"
     method: POST
     force_basic_auth: true
+    # sometime the public certificat is not deployed
+    validate_certs: false
     status_code:
       - 200
       - 201
@@ -283,6 +295,8 @@
     url: "{{ _gitea_api_uri }}/api/v1/repos/{{ ocp4_workload_cloud_native_robot_user }}/starter-app-python/hooks"
     method: POST
     force_basic_auth: true
+    # sometime the public certificat is not deployed
+    validate_certs: false
     status_code:
       - 200
       - 201

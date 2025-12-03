@@ -1,0 +1,141 @@
+= ocp4_workload_rhoso_ipam4lab
+
+== Role overview
+
+This workload role integrates with the IPAM4Lab service to allocate IP addresses for RHOSO (Red Hat OpenStack Services on OpenShift) lab deployments.
+
+The role calls the IPAM4Lab REST API to:
+- Allocate 16 individual IP addresses from a shared network pool for the lab environment
+- Retrieve specific IP addresses for workers, bastion, public network range, and conversion host
+- Display allocation information to users via `agnosticd_user_info`
+- Handle deallocation when the workload is removed
+- Support overlapping IP allocations across different clusters using the same shared CIDR
+
+== Deployed Content
+
+* IP address allocation from IPAM4Lab service with cluster support
+* Environment variables for RHOSO deployment including new EXTERNAL_IP_BASTION
+* User information display with allocated IP addresses
+* Support for overlapping IP allocations across different clusters using shared CIDR (`192.168.0.0/16`)
+
+== Configuration
+
+=== Required Variables
+
+[cols="2,1,3"]
+|===
+| Variable | Default | Description
+
+| `ocp4_workload_rhoso_ipam4lab_service_url`
+| (empty)
+| *Required.* URL to the IPAM4Lab service (e.g., `https://ipam4lab-myproject.apps.cluster.example.com`)
+
+| `ocp4_workload_rhoso_ipam4lab_cluster_name`
+| (empty)
+| *Required.* Cluster name for IP allocation (supports overlapping IP allocations across clusters using shared CIDR)
+
+|===
+
+=== Optional Variables
+
+[cols="2,1,3"]
+|===
+| Variable | Default | Description
+
+| `ocp4_workload_rhoso_ipam4lab_allocation_name`
+| `{{ guid }}`
+| Name for the IP allocation request
+
+| `ocp4_workload_rhoso_ipam4lab_request_timeout`
+| `30`
+| Timeout in seconds for API requests
+
+| `ocp4_workload_rhoso_ipam4lab_include_raw_response`
+| `true`
+| Whether to include full allocation data in user info
+
+|===
+
+== IP Address Allocation
+
+The role allocates 16 individual IP addresses from a shared `192.168.0.0/16` network pool with the following assignments:
+
+* **EXTERNAL_IP_WORKER_1**: First allocated IP (e.g., `192.168.0.1`)
+* **EXTERNAL_IP_WORKER_2**: Second allocated IP (e.g., `192.168.0.2`)
+* **EXTERNAL_IP_WORKER_3**: Third allocated IP (e.g., `192.168.0.3`)
+* **EXTERNAL_IP_BASTION**: Fourth allocated IP (e.g., `192.168.0.4`)
+* **PUBLIC_NET_START**: Fifth allocated IP (e.g., `192.168.0.5`)
+* **PUBLIC_NET_END**: Sixteenth allocated IP (e.g., `192.168.0.16`)
+* **CONVERSION_HOST_IP**: One IP within the public range (e.g., `192.168.0.11`)
+
+=== Public IP Range
+
+Between PUBLIC_NET_START and PUBLIC_NET_END, there are exactly **10 available IPs** for lab use, with CONVERSION_HOST_IP being one of those IPs within the range.
+
+== Cluster Support
+
+The role supports cluster-specific IP allocations where **all clusters share the same CIDR** (`192.168.0.0/16`) with **overlapping IP allocations**. This means:
+
+* **Shared Network**: All clusters use the same `192.168.0.0/16` network  
+* **Identical IPs**: The same allocation name gets identical IP addresses across different clusters
+* **Logical Isolation**: Clusters are separated at the application level, not network level
+* **Predictable Addressing**: Lab allocations are consistent regardless of cluster
+
+This design is useful when:
+
+* Running multiple OpenShift clusters that need identical IP allocation patterns
+* Testing across development, staging, and production environments with same IPs
+* Maintaining consistent IP addressing across cluster environments
+* Allowing overlapping IP usage without conflicts
+
+The cluster name must be explicitly provided through the `ocp4_workload_rhoso_ipam4lab_cluster_name` variable.
+
+=== Example Overlapping Allocations
+
+```yaml
+# Cluster "production" 
+allocation_name: "rhoso-lab-001"
+cluster: "production" 
+# Gets: EXTERNAL_IP_WORKER_1=192.168.0.1
+
+# Cluster "development"
+allocation_name: "rhoso-lab-001" 
+cluster: "development"
+# Gets: EXTERNAL_IP_WORKER_1=192.168.0.1  # Same IP!
+```
+
+== Example Usage
+
+[source,yaml]
+----
+# Configure the workload in your AgnosticD config
+workloads:
+  - ocp4_workload_rhoso_ipam4lab
+
+# Required variables
+ocp4_workload_rhoso_ipam4lab_service_url: "https://ipam4lab-ipam4lab.apps.cluster.example.com"
+ocp4_workload_rhoso_ipam4lab_cluster_name: "production-cluster"
+
+# Optional variables
+ocp4_workload_rhoso_ipam4lab_allocation_name: "rhoso-lab-{{ guid }}"
+----
+
+== Output
+
+The role provides IP allocation information through `agnosticd_user_info` including:
+
+* Allocation details (name, cluster, subnet, network)  
+* Individual IP addresses for each component (workers, bastion, public range, conversion host)
+* Ready-to-use environment variable exports including new EXTERNAL_IP_BASTION
+* Structured data for consumption by other workloads (including cluster name)
+* Information about shared CIDR and overlapping allocation support
+
+== Dependencies
+
+* IPAM4Lab service must be deployed and accessible
+* Network connectivity to the IPAM4Lab service URL
+* Valid allocation name (unique per deployment)
+
+== Author Information
+
+Created for AgnosticD integration with IPAM4Lab service.
